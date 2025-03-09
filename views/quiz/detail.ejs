@@ -1,0 +1,43 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>detail quizzes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+
+<body>
+    <%- include('../partials/header', { user }) %>
+
+        <div class="container mt-5">
+            <h2>
+                <%= quiz.title %>
+            </h2>
+            <p><strong>Description:</strong>
+                <%= quiz.description %>
+            </p>
+
+            <h3>Questions in this Quiz:</h3>
+            <ul class="list-group mb-3">
+                <% quiz.questions.forEach(function(question) { %>
+                    <li class="list-group-item">
+                        <a href="/questions/<%= question._id %>">
+                            <%= question.text %>
+                        </a>
+                    </li>
+                    <% }) %>
+            </ul>
+
+            <a href="/quizzes/edit/<%= quiz._id %>" class="btn btn-warning mt-3">Edit Quiz</a>
+            <form action="/quizzes/delete/<%= quiz._id %>" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-danger mt-3">Delete Quiz</button>
+            </form>
+        </div>
+
+        <%- include('../partials/footer') %>
+
+</body>
+
+</html>

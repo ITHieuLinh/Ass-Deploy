@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz List</title>
+
+  <!-- Bootstrap CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+</head>
+<body>
+
+  <div class="container mt-5">
+    <h1 class="text-center mb-4">Danh sách Quiz</h1>
+    <% if (quizzes && quizzes.length > 0) { %>
+      <div class="list-group">
+        <% quizzes.forEach(quiz => { %>
+          <div class="list-group-item mb-3">
+            <h3 class="mb-2"><%= quiz.title %></h3>
+            <p><%= quiz.description || 'No description' %></p>
+
+            <% if (quiz.questions && quiz.questions.length > 0) { %>
+              <ul class="list-unstyled">
+                <% quiz.questions.forEach(question => { %>
+                  <li class="ms-3"><i class="bi bi-check-circle"></i> <%= question.text %></li>
+                <% }) %>
+              </ul>
+            <% } else { %>
+              <p>No questions available for this quiz</p>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <p class="text-center">No quizzes found</p>
+    <% } %>
+  </div>
+
+  <!-- Bootstrap JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pzjw8f+ua7Kw1TIq0gdNYT8gGDLhERQ6OYzSfohQdf5VDbKUl9HgvoZnV+q6fJyd" crossorigin="anonymous"></script>
+
+</body>
+</html>
