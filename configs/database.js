@@ -3,7 +3,7 @@
 
     const connectDB = async () => {
         try {
-            await mongoose.connect("mongodb://127.0.0.1:27017/manageQuiz", {
+            await mongoose.connect("mongodb+srv://root:123@sellticket.crjks.mongodb.net/manageQuiz", {
                 useNewUrlParser: true,
                 useUnifiedTopology: true
             });
