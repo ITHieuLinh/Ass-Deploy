@@ -1,5 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config(); // Load biến môi trường ngay đầu file
+
 const connectDB = require('./configs/database');
 const quizRoutes = require('./routes/quizRouter');
 const questionRoutes = require('./routes/questionRouter');
@@ -8,24 +10,20 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const axios = require('axios');
 const fs = require('fs');
-const https = require('https');
 const jwt = require('jsonwebtoken');
 const { expressjwt: jwtMiddleware } = require('express-jwt');
 const cookieParser = require('cookie-parser');
 
-dotenv.config();
-connectDB();
-
 const app = express();
 
-// Đọc chứng chỉ SSL (tự ký) cho HTTPS
-const privateKey = fs.readFileSync('key.pem', 'utf8');
-const certificate = fs.readFileSync('cert.pem', 'utf8');
-const credentials = { key: privateKey, cert: certificate };
+// Kiểm tra PORT từ môi trường hoặc dùng mặc định 3000
+const PORT = process.env.PORT || 3000;
 
-// Sử dụng cookie-parser
+// Kết nối Database
+connectDB();
+
+// Middleware
 app.use(cookieParser());
-
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
@@ -34,123 +32,92 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // Cấu hình JWT
-const JWT_SECRET = 'your_jwt_secret_key'; // Thay bằng secret key an toàn
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
-// Middleware để đọc token từ cookie
-const getTokenFromCookie = (req) => {
-  if (req.cookies && req.cookies.jwt) {
-    return req.cookies.jwt;
-  }
-  return null;
-};
+// Middleware lấy token từ cookie
+const getTokenFromCookie = (req) => req.cookies?.jwt || null;
 
-// Cấu hình express-jwt để đọc token từ cookie
 app.use(
   jwtMiddleware({
     secret: JWT_SECRET,
     algorithms: ['HS256'],
-    getToken: getTokenFromCookie, // Sử dụng hàm getTokenFromCookie để đọc token từ cookie
+    getToken: getTokenFromCookie,
   }).unless({
-    path: ['/auth/facebook', '/auth/facebook/callback', '/', '/login', '/logout'], // Bỏ qua các route không cần xác thực
+    path: ['/auth/facebook', '/auth/facebook/callback', '/', '/login', '/logout'],
   })
 );
 
-// Cấu hình ứng dụng Facebook
-const CLIENT_ID = '646670241089515'; // Thay bằng Client ID của bạn
-const CLIENT_SECRET = 'd5163466d31e0781760f294db98d70a8'; // Thay bằng Client Secret của bạn
-const REDIRECT_URI = 'https://localhost:3000/auth/facebook/callback'; // Sử dụng HTTPS
+// Cấu hình Facebook OAuth
+const CLIENT_ID = process.env.FB_CLIENT_ID || '646670241089515';
+const CLIENT_SECRET = process.env.FB_CLIENT_SECRET || 'd5163466d31e0781760f294db98d70a8';
+const REDIRECT_URI = process.env.FB_REDIRECT_URI || `http://localhost:${PORT}/auth/facebook/callback`;
 
-// Route đăng nhập Facebook
+// Route Facebook OAuth
 app.get('/auth/facebook', (req, res) => {
   const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=public_profile,email`;
   res.redirect(authUrl);
 });
 
-// Xử lý callback từ Facebook
 app.get('/auth/facebook/callback', async (req, res) => {
   const code = req.query.code;
   if (!code) return res.status(400).send('Không nhận được mã xác thực từ Facebook');
 
   try {
-    const tokenResponse = await axios.get(
-      `https://graph.facebook.com/v19.0/oauth/access_token`,
-      {
-        params: {
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          redirect_uri: REDIRECT_URI,
-          code: code,
-        },
-      }
-    );
+    const tokenResponse = await axios.get('https://graph.facebook.com/v19.0/oauth/access_token', {
+      params: { client_id: CLIENT_ID, client_secret: CLIENT_SECRET, redirect_uri: REDIRECT_URI, code },
+    });
 
     const accessToken = tokenResponse.data.access_token;
     const userInfoResponse = await axios.get(
       `https://graph.facebook.com/me?fields=id,name,email&access_token=${accessToken}`
     );
 
-    const userInfo = userInfoResponse.data;
-    const { id: facebookId, name: username, email } = userInfo;
+    const { id: facebookId, name: username, email } = userInfoResponse.data;
 
-    // Tạo JWT với thông tin người dùng
-    const token = jwt.sign(
-      { facebookId, username, email },
-      JWT_SECRET,
-      { expiresIn: '1h' } // Token hết hạn sau 1 giờ
-    );
+    // Tạo JWT
+    const token = jwt.sign({ facebookId, username, email }, JWT_SECRET, { expiresIn: '1h' });
 
     // Lưu token vào cookie
     res.cookie('jwt', token, { httpOnly: true });
     res.redirect('/');
   } catch (error) {
-    console.error('Lỗi chi tiết từ Facebook:', error.response ? error.response.data : error.message);
-    res.status(500).send('Lỗi hoàn tất OAuth: ' + (error.response ? error.response.data.error.message : error.message));
+    console.error('Lỗi OAuth Facebook:', error.response?.data || error.message);
+    res.status(500).send('Lỗi OAuth Facebook: ' + (error.response?.data?.error?.message || error.message));
   }
 });
 
-// Route chính
+// Routes
 app.get('/', (req, res) => {
-  const token = req.cookies.jwt; // Đọc token từ cookie
+  const token = req.cookies?.jwt;
   let user = null;
-
   if (token) {
     try {
-      user = jwt.verify(token, JWT_SECRET); // Xác thực token và lấy thông tin người dùng
-    } catch (err) {
-      // Token không hợp lệ, không làm gì cả
-    }
+      user = jwt.verify(token, JWT_SECRET);
+    } catch (err) {}
   }
-
-  res.render('home', { user }); // Truyền biến user vào template
+  res.render('home', { user });
 });
 
-// Route đăng nhập
 app.get('/login', (req, res) => {
-  const token = req.cookies.jwt; // Đọc token từ cookie
+  const token = req.cookies?.jwt;
   let user = null;
-
   if (token) {
     try {
-      user = jwt.verify(token, JWT_SECRET); // Xác thực token và lấy thông tin người dùng
-    } catch (err) {
-      // Token không hợp lệ, không làm gì cả
-    }
+      user = jwt.verify(token, JWT_SECRET);
+    } catch (err) {}
   }
-
-  res.render('login', { user }); // Truyền biến user vào template
+  res.render('login', { user });
 });
 
-// Route đăng xuất
 app.get('/logout', (req, res) => {
-  res.clearCookie('jwt'); // Xóa cookie jwt
-  res.redirect('/'); // Chuyển hướng về trang chủ
+  res.clearCookie('jwt');
+  res.redirect('/');
 });
 
-// Sử dụng các route khác
+// Gắn routes vào app
 app.use('/', questionAndQuiz);
 
-// Khởi động server HTTPS
-const server = https.createServer(credentials, app);
-server.listen(3000, () => {
-  console.log("🚀 Server đang chạy tại https://localhost:3000");
+// Khởi động server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
