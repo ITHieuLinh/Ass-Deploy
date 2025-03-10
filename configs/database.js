@@ -3,10 +3,7 @@
 
     const connectDB = async () => {
         try {
-            await mongoose.connect("mongodb+srv://root:123@sellticket.crjks.mongodb.net/manageQuiz", {
-                useNewUrlParser: true,
-                useUnifiedTopology: true
-            });
+            await mongoose.connect("mongodb+srv://root:123@sellticket.crjks.mongodb.net/manageQuiz");
             console.log("✅ Kết nối database manageProduct thành công!");
         } catch (error) {
             console.log("❌ Lỗi kết nối database:", error.message);
